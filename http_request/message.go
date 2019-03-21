@@ -1,104 +1,98 @@
 package http_request
 
 import (
-	"cron_demo/const"
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/tidwall/gjson"
-	"math/rand"
-	"strconv"
-	"strings"
-	"time"
+	"io/ioutil"
+	"net/http"
 )
 
-// 添加评论
-func MessageAdd(id int64) {
-	var ok, content string
-	fmt.Printf("是否参与评论[y/n]: ")
-	fmt.Scanln(&ok)
-	if (strings.EqualFold(ok,"n")) {
-		println("======= 跳过评论 =======")
-	} else {
-		//fmt.Printf("请输入评论内容: ")
-		//fmt.Scanln(&content)
-		content = "测试评论23333"  //默认值
-		url := host + "/message/add"
-		params := make(map[string]string)
-		params["c_type"] = "1"
-		params["element_id"] = strconv.FormatInt(id, 10)
-		params["comment_content"] = content
-		body := PostFormRequest(url, params)
-		success := gjson.Get(string(body), "success").Bool()
-		//panic(body)
-		if (success == false) {
-			panic("=======失败=======  " + gjson.Get(string(body), "info").String())
-		}
-	}
+// 发送模板消息
+
+var (
+	send_template_url    = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"
+)
+
+
+type TemplateMsg struct {
+	Touser      string        `json:"touser"`      //接收者的OpenID
+	TemplateID  string        `json:"template_id"` //模板消息ID
+	URL         string        `json:"url"`         //点击后跳转链接
+	Data        *TemplateData `json:"data"`
+}
+type Miniprogram struct {
+	AppID    string `json:"appid"`
+	Pagepath string `json:"pagepath"`
 }
 
-// 添加弹幕
-func MessageAddDm() {
-	var ok, content string
-	fmt.Printf("是否添加弹幕[y/n]: ")
-	fmt.Scanln(&ok)
-	if (strings.EqualFold(ok,"n")) {
-		println("======= 跳过添加弹幕 =======")
-	} else {
-		//fmt.Printf("请输入评论内容: ")
-		//fmt.Scanln(&content)
-		content = "测试弹幕23333"  //默认值
-		url := host + "/message/add-dm"
-		params := make(map[string]interface{})
-		params["token"] = ""
-		params["sound_id"] = ""
-		params["stime"] = ""
-		params["text"] = content
-		body := PostRequest(url, params)
-		code := gjson.Get(string(body), "code").Int()
-		if (code != int64(0)) {
-			panic("=======失败=======" + "添加弹幕失败")
-		}
-	}
+type TemplateData struct {
+	First    KeyWordData `json:"first,omitempty"`
+	Keyword1 KeyWordData `json:"keyword1,omitempty"`
+	Keyword2 KeyWordData `json:"keyword2,omitempty"`
+	Keyword3 KeyWordData `json:"keyword3,omitempty"`
+	Keyword4 KeyWordData `json:"keyword4,omitempty"`
+	Keyword5 KeyWordData `json:"keyword5,omitempty"`
+	Remark   KeyWordData `json:"remark,omitempty"`
 }
 
-func LiveMessage()  {
-	url := "https://fm.uat.missevan.com/api/chatroom/message/send"
-	params := make(map[string]interface{})
-	params["room_id"] = _const.RoomId
-	params["message"] = "加油" + GetRandomString(10) + time.Now().Format("2006年01月02日 15：04：05")
-	params["msg_id"] = "34243979-c079-4af4-9efa-d88e116870f6"
-	//params["msg_id"] =  uuid.Must(uuid.NewV4()).String()
-	//panic(params["msg_id"])
-	body := PostRequest(url, params)
-	code := gjson.Get(string(body), "code").Int()
-	panic(body)
-	if (code != int64(0)) {
-		panic("=======失败=======" + "添加失败")
-	}
+type KeyWordData struct {
+	Value string `json:"value"`
+	Color string `json:"color,omitempty"`
 }
 
-func GetRandomString(l int) string{
-	str := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	bytes := []byte(str)
-	result := []byte{}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < l; i++ {
-		result = append(result, bytes[r.Intn(len(bytes))])
+type SendTemplateResponse struct {
+	Errcode int    `json:"errcode"`
+	Errmsg  string `json:"errmsg"`
+	MsgID   int `json:"msgid"`
+}
+
+type GetAccessTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+func SendTemplate() {
+	templateMsg := TemplateMsg{}
+	tempData := TemplateData{}
+	tempData.First.Value = "测试模板消息"
+	tempData.Keyword1.Value = "大家记得买票啊"
+	tempData.Keyword2.Value = "马上就要放假了，大家记得买回家的票啊"
+	tempData.Remark.Value = "remark"
+	templateMsg.Data = &tempData
+
+	templateMsg.Touser = "oban11Jt_4OTpxEjC7TBf6FVoMrc"
+	templateMsg.TemplateID = "QLOSTXWVpRwqqOHdfE6VbHp4z9Gl_Sl0ccNimjTju3I"
+	response, err := _SendTemplate(&templateMsg)
+	if err != nil {
+		fmt.Println("发送模板消息失败", err.Error())
 	}
-	return string(result)
+
+	fmt.Println(response)
 }
 
 
-func LiveGift() {
-	url := "https://fm.uat.missevan.com/api/chatroom/gift/send"
-	params := make(map[string]interface{})
-	params["room_id"] = _const.RoomId
-	params["gift_id"] = 1
-	params["gift_num"] = 1
 
-	body := PostRequest(url, params)
-	code := gjson.Get(string(body), "code").Int()
-	panic(body)
-	if (code != int64(0)) {
-		panic("=======失败=======" + "礼物发送失败")
+// SendTemplate 发送模板消息
+func _SendTemplate(msg *TemplateMsg) (*SendTemplateResponse, error) {
+	accessToken := "19_kBHc3krhXjX9m0EI7E-m7UdUwnyTtbRT56c1vVCM6IbSDl4p8P2pRQGBGOhxiKjkDYpbKz9uVDZzID8lzRZiVOg0CD1tK9TuFMxvdE6lKDXnAbexBYIGaOAZI60DsJomyFDUhvqPzFe1LNK-IFPdABAAXH"
+	url := fmt.Sprintf(send_template_url, accessToken)
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
 	}
+	client := http.Client{}
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	var templateResponse SendTemplateResponse
+	err = json.Unmarshal(body, &templateResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &templateResponse, nil
 }
+

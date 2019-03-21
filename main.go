@@ -6,21 +6,17 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 )
 
 func main() {
-	//i := 0
-	//c := cron.New()
-	//spec := "0 */1 * * * *"
-	//c.AddFunc(spec, func() {
-	//	i++
-	//	log.Println("execute per second", i)
-	//})
-	//c.Start()
-	//select {}
+
+	timeStr:=time.Now().Format("2006-01-02 15:04:05")
+
+	fmt.Println(timeStr)
 
 	task := task.LoopTask{
-		C: 2, //并发数
+		C: 50, //并发数
 	}
 	manager := http_task.NewManager(task)
 	fmt.Println("开始压测请等待")
